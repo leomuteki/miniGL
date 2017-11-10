@@ -46,7 +46,7 @@ inline void MGL_ERROR(const char* description) {
 struct Vertex;
 struct Triangle;
 
-vec3 *defaultColor = new vec3{ 1, 1, 1 };
+vec3 defaultColor = { 1, 1, 1 };
 MGLpoly_mode drawMode;
 vector<Vertex> listOfVertices;
 vector<Triangle> listOfTriangles;
@@ -126,9 +126,10 @@ void mglBegin(MGLpoly_mode mode)
  */
 void mglEnd()
 {
+  unsigned verticesSize = listOfVertices.size();
   if (drawMode == MGL_TRIANGLES) {
-    for (unsigned i = 0; i < listOfVertices.size(); ++i) {
-      if (i + 2 < listOfVertices.size()) {
+    for (unsigned i = 0; i < verticesSize; ++i) {
+      if (i + 2 < verticesSize) {
         Vertex a, b, c;
         a = listOfVertices.at(i);
         b = listOfVertices.at(i+1);
@@ -138,8 +139,8 @@ void mglEnd()
     }
   }
   else if (drawMode == MGL_QUADS) {
-    for (unsigned i = 0; i < listOfVertices.size(); ++i) {
-      if (i + 3 < listOfVertices.size()) {
+    for (unsigned i = 0; i < verticesSize; ++i) {
+      if (i + 3 < verticesSize) {
         Vertex a, b, c, d;
         a = listOfVertices.at(i);
         b = listOfVertices.at(i+1);
@@ -150,10 +151,12 @@ void mglEnd()
       }
     }
   }
-  int size = listOfTriangles.size();
-  for (int i = 0; i < size; ++i) {
-    cout << listOfTriangles.at(i).a << listOfTriangles.at(i).b << listOfTriangles.at(i).c << endl;
-  }
+  int trianglesSize = listOfTriangles.size();
+  for (int i = 0; i < trianglesSize; ++i) {
+    cout << listOfTriangles.at(i).a.position << endl;
+    cout << listOfTriangles.at(i).b.position << endl;
+    cout << listOfTriangles.at(i).c.position << endl;
+ }
 }
 
 /**
@@ -165,7 +168,8 @@ void mglEnd()
 void mglVertex2(MGLfloat x,
                 MGLfloat y)
 {
-  listOfVertices.push_back(new Vertex(x, y));
+  Vertex v(x, y);
+  listOfVertices.push_back(v);
 }
 
 /**

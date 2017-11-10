@@ -61,6 +61,15 @@ struct vec: mat<T,n,1>
     vec<T,n-1> remove_last_dim() const
     {vec<T,n-1> v; for(int i=0; i<n-1; i++) v[i]=values[i]; return v;}
 
+    vec<T,n>& operator=(vec<T,n> v)
+    {
+      for(int i = 0; i < n; i++)
+        {
+          this->values[i] = v[i];
+        }
+      return *this; 
+    }
+
 };
 
 template <class T, int n>
@@ -90,6 +99,16 @@ std::ostream& operator << (std::ostream& out, const vec<T,n> & u)
     }
     return out;
 }
+/*
+template <class T, int n>
+void operator =(vec<T,n> & u, const vec<T,n> & v)
+{
+  for(int i = 0; i < n; i++)
+    {
+      u[i] = v[i];
+    }
+}
+*/
 
 typedef vec<float,2> vec2;
 typedef vec<float,3> vec3;
