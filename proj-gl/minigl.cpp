@@ -23,7 +23,6 @@
 #include <cmath>
 #include <vector>
 #include <cstdio>
-#include "vec.h"
 
 using namespace std;
 
@@ -43,14 +42,6 @@ inline void MGL_ERROR(const char* description) {
     printf("%s\n", description);
     exit(1);
 }
-struct Vertex;
-struct Triangle;
-
-vec3 defaultColor = { 1, 1, 1 };
-MGLpoly_mode drawMode;
-vector<Vertex> listOfVertices;
-vector<Triangle> listOfTriangles;
-
 
 // Global data structures
 struct Vertex {
@@ -58,22 +49,23 @@ struct Vertex {
   vec4 position;
 
   Vertex() {
-    color = defaultColor;
+    color = { 0, 0, 0 };
     position = { 0, 0, 0, 0 };
   }
 
-  Vertex(float x, float y) {
-    color = defaultColor;
-    position = { x, y, 0, 1 };
+  Vertex(float x, float y, float z) {
+    color = vec3(1.0f, 1.0f, 1.0f);
+    position = { x, y, z, 1 };
   }
 
   Vertex(float r, float g, float b, float x, float y) {
-    color = {r, g, b };
+    color = { r, g, b };
     position = { x, y, 0, 1 };
   }
 
+
   Vertex(float r, float g, float b, float x, float y, float z, float w) {
-    color = {r, g, b };
+    color = { r, g, b };
     position = { x, y, z, w };
   }
 };
@@ -87,6 +79,10 @@ struct Triangle {
     c = cIn;
   }
 };
+
+MGLpoly_mode drawMode;
+vector<Vertex> listOfVertices;
+vector<Triangle> listOfTriangles;
 
 /**
  * Read pixel data starting with the pixel at coordinates
@@ -114,7 +110,7 @@ void mglReadPixels(MGLsize width,
 /**
  * Start specifying the vertices for a group of primitives,
  * whose type is specified by the given mode.
- */
+ */  
 void mglBegin(MGLpoly_mode mode)
 {
   drawMode = mode;
@@ -126,10 +122,9 @@ void mglBegin(MGLpoly_mode mode)
  */
 void mglEnd()
 {
-  unsigned verticesSize = listOfVertices.size();
   if (drawMode == MGL_TRIANGLES) {
-    for (unsigned i = 0; i < verticesSize; ++i) {
-      if (i + 2 < verticesSize) {
+    for (unsigned i = 0; i < listOfVertices.size(); ++i) {
+      if (i + 2 < listOfVertices.size()) {
         Vertex a, b, c;
         a = listOfVertices.at(i);
         b = listOfVertices.at(i+1);
@@ -139,8 +134,8 @@ void mglEnd()
     }
   }
   else if (drawMode == MGL_QUADS) {
-    for (unsigned i = 0; i < verticesSize; ++i) {
-      if (i + 3 < verticesSize) {
+    for (unsigned i = 0; i < listOfVertices.size(); ++i) {
+      if (i + 3 < listOfVertices.size()) {
         Vertex a, b, c, d;
         a = listOfVertices.at(i);
         b = listOfVertices.at(i+1);
@@ -151,12 +146,6 @@ void mglEnd()
       }
     }
   }
-  int trianglesSize = listOfTriangles.size();
-  for (int i = 0; i < trianglesSize; ++i) {
-    cout << listOfTriangles.at(i).a.position << endl;
-    cout << listOfTriangles.at(i).b.position << endl;
-    cout << listOfTriangles.at(i).c.position << endl;
- }
 }
 
 /**
@@ -168,8 +157,7 @@ void mglEnd()
 void mglVertex2(MGLfloat x,
                 MGLfloat y)
 {
-  Vertex v(x, y);
-  listOfVertices.push_back(v);
+  listOfVertices.push_back(Vertex(x, y, 0.0f));
 }
 
 /**
@@ -180,6 +168,7 @@ void mglVertex3(MGLfloat x,
                 MGLfloat y,
                 MGLfloat z)
 {
+  listOfVertices.push_back(Vertex(x, y, z));
 }
 
 /**
