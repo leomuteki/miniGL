@@ -35,6 +35,10 @@ typedef vec<MGLfloat,4> vec4;   //data structure storing a 4 dimensional vector,
 typedef vec<MGLfloat,3> vec3;   //data structure storing a 3 dimensional vector, see vec.h
 typedef vec<MGLfloat,2> vec2;   //data structure storing a 2 dimensional vector, see vec.h
 
+float areaRatio(ax, ay, bx, by, cx, cy) {
+  return ax*(by-cy) + ay*(cx-bx) + (bx*cy-by*cx);
+}
+
 /**
  * Standard macro to report errors
  */
@@ -100,11 +104,36 @@ void mglReadPixels(MGLsize width,
                    MGLsize height,
                    MGLpixel *data)
 {
-  for (unsigned i = 0; i < height; ++i) {
-    for (unsigned j = 0; j < width; ++j) {
-       
+  // Get every triangle from the global list
+  unsigned listOfTrianglesSize = listOfTriangles.size();
+  for (unsigned i = 0; i < listOfTrianglesSize; ++i) {
+    Vertex curTri = listOfTriangles.at(i);
+    // Transform to pixel coordinates
+    int ax = (curTri.a.position[0] + 1) * width / 2;
+    int ay = (curTri.a.position[1] + 1) * height / 2;
+    int bx = (curTri.b.position[0] + 1) * width / 2;
+    int by = (curTri.b.position[1] + 1) * height / 2;
+    int cx = (curTri.c.position[0] + 1) * width / 2;
+    int cy = (curTri.c.position[1] + 1) * height / 2;
+    // Find rectangle tightly fit around triangle
+    int minX = min(min(ax, bx), cx);
+    int maxX = max(max(ax, bx), cx);
+    int minY = min(min(ay, by), cy);
+    int maxY = max(max(ay, by), cy);
+    for (int i = minX; i < maxX; ++i) {
+      for (int j = minY; j < maxY; ++j) {
+        // Check if image pixel in within triangle
+        float areaABC = areaRatio(ax, ay, bx, by, cx, cy);
+        float alpha = areaRatio(i, j, bx, by, cx, cy) / areaABC;
+        float beta = areaRatio(ax, ay, i, j, cx, cy) / areaABC;
+        float gamma = 1 - alpha - beta;
+        if (alpha >= 0 && beta >= 0 && gamma >= 0) {
+          // push MGLpixel onto zBuffer
+        }
+      }
     }
   }
+  // Push highest in each zBuffer to *data
 }
 
 /**
