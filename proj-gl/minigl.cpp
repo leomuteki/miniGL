@@ -35,7 +35,7 @@ typedef vec<MGLfloat,4> vec4;   //data structure storing a 4 dimensional vector,
 typedef vec<MGLfloat,3> vec3;   //data structure storing a 3 dimensional vector, see vec.h
 typedef vec<MGLfloat,2> vec2;   //data structure storing a 2 dimensional vector, see vec.h
 
-float areaRatio(ax, ay, bx, by, cx, cy) {
+float areaRatio(int ax, int ay, int bx, int by, int cx, int cy) {
   return ax*(by-cy) + ay*(cx-bx) + (bx*cy-by*cx);
 }
 
@@ -51,23 +51,18 @@ inline void MGL_ERROR(const char* description) {
 struct Vertex {
   vec3 color;
   vec4 position;
-
   Vertex() {
     color = { 0, 0, 0 };
     position = { 0, 0, 0, 0 };
   }
-
   Vertex(float x, float y, float z) {
     color = vec3(1.0f, 1.0f, 1.0f);
     position = { x, y, z, 1 };
   }
-
   Vertex(float r, float g, float b, float x, float y) {
     color = { r, g, b };
     position = { x, y, 0, 1 };
   }
-
-
   Vertex(float r, float g, float b, float x, float y, float z, float w) {
     color = { r, g, b };
     position = { x, y, z, w };
@@ -76,13 +71,34 @@ struct Vertex {
 
 struct Triangle {
   Vertex a, b, c;
-
   Triangle(Vertex aIn, Vertex bIn, Vertex cIn) {
     a = aIn;
     b = bIn;
     c = cIn;
   }
 };
+
+struct Pixel {
+  vec3 color;
+  vec3 position;
+  Pixel() {
+    color = { 0, 0, 0 };
+    position = { 0, 0, 0 };
+  }
+  Pixel(float x, float y, float z) {
+    color = vec3(1.0f, 1.0f, 1.0f);
+    position = { x, y, z };
+  }
+  Pixel(float r, float g, float b, float x, float y) {
+    color = { r, g, b };
+    position = { x, y, 0};
+  }
+  Pixel(float r, float g, float b, float x, float y, float z) {
+    color = { r, g, b };
+    position = { x, y, z };
+  }
+};
+
 
 MGLpoly_mode drawMode;
 vector<Vertex> listOfVertices;
@@ -106,8 +122,15 @@ void mglReadPixels(MGLsize width,
 {
   // Get every triangle from the global list
   unsigned listOfTrianglesSize = listOfTriangles.size();
+  // Fill zBuffer with null Pixels for zValue comparison
+  Pixel zBuffer[width][height];
+  for (unsigned i = 0; i < width; ++i) {
+    for (unsigned j = 0; j < height; ++j) {
+      zBuffer[i][j] = Pixel();
+    }
+  }
   for (unsigned i = 0; i < listOfTrianglesSize; ++i) {
-    Vertex curTri = listOfTriangles.at(i);
+    Triangle curTri = listOfTriangles.at(i);
     // Transform to pixel coordinates
     int ax = (curTri.a.position[0] + 1) * width / 2;
     int ay = (curTri.a.position[1] + 1) * height / 2;
@@ -129,11 +152,22 @@ void mglReadPixels(MGLsize width,
         float gamma = 1 - alpha - beta;
         if (alpha >= 0 && beta >= 0 && gamma >= 0) {
           // push MGLpixel onto zBuffer
+          if (zBuffer[i][j].position[2] < (curTri.a.position[2]*alpha+curTri.b.position[2]*beta+curTri.c.position[2]*gamma)) {
+            zBuffer[i][j] = Pixel(i, j,(curTri.a.position[2]*alpha+curTri.b.position[2]*beta+curTri.c.position[2]*gamma));
+          }
         }
       }
     }
   }
   // Push highest in each zBuffer to *data
+  MGLpixel finalPixels[2*width*height];
+  for (unsigned i = 0; i < width; ++i) {
+    for (unsigned j = 0; j < height; ++j){
+      finalPixels[2*(width + i*height)]=zBuffer[width][height].position[0];
+      finalPixels[2*(width + i*height)+1]=zBuffer[width][height].position[1];
+    }
+  }
+  data = finalPixels;
 }
 
 /**
