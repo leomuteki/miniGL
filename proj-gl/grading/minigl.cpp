@@ -160,14 +160,14 @@ void mglReadPixels(MGLsize width,
     }
   }
   // Push highest in each zBuffer to *data
+  MGLpixel finalPixels[2*width*height];
   for (unsigned i = 0; i < width; ++i) {
     for (unsigned j = 0; j < height; ++j){
-      // Fill in passed-in array
-      *(data + (unsigned int)(zBuffer[i][j].position[0] + zBuffer[i][j].position[1]) * width) =
-        Make_Pixel(255,255,255);
-
+      finalPixels[2*(width + i*height)]=zBuffer[width][height].position[0];
+      finalPixels[2*(width + i*height)+1]=zBuffer[width][height].position[1];
     }
   }
+  data = finalPixels;
 }
 
 /**
@@ -187,7 +187,29 @@ void mglEnd()
 {
   if (drawMode == MGL_TRIANGLES) {
     for (unsigned i = 0; i < listOfVertices.size(); ++i) {
-
+      if (i + 2 < listOfVertices.size()) {
+        Vertex a, b, c;
+        a = listOfVertices.at(i);
+        b = listOfVertices.at(i+1);
+        c = listOfVertices.at(i+2);
+        listOfTriangles.push_back(Triangle(a, b, c));
+      }
+    }
+  }
+  else if (drawMode == MGL_QUADS) {
+    for (unsigned i = 0; i < listOfVertices.size(); ++i) {
+      if (i + 3 < listOfVertices.size()) {
+        Vertex a, b, c, d;
+        a = listOfVertices.at(i);
+        b = listOfVertices.at(i+1);
+        c = listOfVertices.at(i+2);
+        d = listOfVertices.at(i+3);
+        listOfTriangles.push_back(Triangle(a, b, c));
+        listOfTriangles.push_back(Triangle(b, c, d));
+      }
+    }
+  }
+}
 
 /**
  * Specify a two-dimensional vertex; the x- and y-coordinates
