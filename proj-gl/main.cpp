@@ -35,6 +35,7 @@
  *
  * minigl -cgpi 00.txt
  *
+ *
  * If you want to test over SSH, you can use mingl-nogl, which does not have
  * any OpenGL dependence.  The solution can be specified as a file.  For
  * example, this will compare your solution to 00.png, outputing your

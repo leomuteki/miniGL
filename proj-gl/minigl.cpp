@@ -35,16 +35,43 @@ typedef vec<MGLfloat,4> vec4;   //data structure storing a 4 dimensional vector,
 typedef vec<MGLfloat,3> vec3;   //data structure storing a 3 dimensional vector, see vec.h
 typedef vec<MGLfloat,2> vec2;   //data structure storing a 2 dimensional vector, see vec.h
 
+// Global structs
+struct Vertex;
+struct Triangle;
+struct Pixel;
+
+// Global variables
+vector<Vertex> listOfVertices;
+vector<Triangle> listOfTriangles;
+vector<mat4> modelViewStack;
+vector<mat4> projectionStack;
+MGLpoly_mode drawMode;
+MGLmatrix_mode matMode;
+vec3 MGLcolor = { 255.0f, 255.0f, 255.0f };
+
 float areaRatio(int ax, int ay, int bx, int by, int cx, int cy) {
   return ax*(by-cy) + ay*(cx-bx) + (bx*cy-by*cx);
 }
 
-/**
+/*
  * Standard macro to report errors
  */
 inline void MGL_ERROR(const char* description) {
-    printf("%s\n", description);
-    exit(1);
+  printf("%s\n", description);
+  exit(1);
+}
+
+vector<mat4> currentStack() {
+  if (matMode == MGL_PROJECTION) {
+    return projectionStack;
+  }
+  else if (matMode == MGL_MODELVIEW) {
+    return modelViewStack;
+  }
+  else {
+    MGL_ERROR("Matrix mode was not set.");
+    return NULL;
+  }
 }
 
 // Global data structures
@@ -98,11 +125,6 @@ struct Pixel {
     position = { x, y, z };
   }
 };
-
-
-MGLpoly_mode drawMode;
-vector<Vertex> listOfVertices;
-vector<Triangle> listOfTriangles;
 
 /**
  * Read pixel data starting with the pixel at coordinates
@@ -183,10 +205,34 @@ void mglBegin(MGLpoly_mode mode)
 /**
  * Stop specifying the vertices for a group of primitives.
  */
+
 void mglEnd()
 {
   if (drawMode == MGL_TRIANGLES) {
     for (unsigned i = 0; i < listOfVertices.size(); ++i) {
+      if (i + 2 < listOfVertices.size()) {
+        Vertex a, b, c;
+        a = listOfVertices.at(i);
+        b = listOfVertices.at(i+1);
+        c = listOfVertices.at(i+2);
+        listOfTriangles.push_back(Triangle(a, b, c));
+      }
+    }
+  }
+  else if (drawMode == MGL_QUADS) {
+    for (unsigned i = 0; i < listOfVertices.size(); ++i) {
+      if (i + 3 < listOfVertices.size()) {
+        Vertex a, b, c, d;
+        a = listOfVertices.at(i);
+        b = listOfVertices.at(i+1);
+        c = listOfVertices.at(i+2);
+        d = listOfVertices.at(i+3);
+        listOfTriangles.push_back(Triangle(a, b, c));
+        listOfTriangles.push_back(Triangle(b, c, d));
+      }
+    }
+  }
+}
 
 
 /**
@@ -217,6 +263,7 @@ void mglVertex3(MGLfloat x,
  */
 void mglMatrixMode(MGLmatrix_mode mode)
 {
+  matMode = mode;
 }
 
 /**
@@ -240,6 +287,7 @@ void mglPopMatrix()
  */
 void mglLoadIdentity()
 {
+  
 }
 
 /**
@@ -339,4 +387,5 @@ void mglColor(MGLfloat red,
               MGLfloat green,
               MGLfloat blue)
 {
+  
 }
