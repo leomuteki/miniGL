@@ -35,7 +35,6 @@
  *
  * minigl -cgpi 00.txt
  *
- *
  * If you want to test over SSH, you can use mingl-nogl, which does not have
  * any OpenGL dependence.  The solution can be specified as a file.  For
  * example, this will compare your solution to 00.png, outputing your
@@ -254,7 +253,7 @@ int main(int argc, char** argv)
         pixel_data_sol = new MGLpixel[width*height];
         for(int i=0;i<width*height;i++) pixel_data_sol[i]=Make_Pixel(0,0,0);
         // TODO REMOVE
-        std::cout << "width*height" << width*height << std::endl;
+        std::cout << "width, height" << width << ", " << height << std::endl;
     }
 
     // Read solution from file
@@ -286,14 +285,6 @@ int main(int argc, char** argv)
         glDrawBuffer(GL_FRONT);
 
         Display_Side_By_Side();
-
-        // TODO REMOVE
-        unsigned maxSize = std::max(sizeof(pixel_data), sizeof(pixel_data_sol));
-        std::cout << "size: " << maxSize << std::endl;
-        for (unsigned i = 0; i < maxSize; ++i) {
-          std::cout << pixel_data[i] << ", sol:" << pixel_data_sol[i] << std::endl;
-        }
-
         if(!show_sol) Capture_OpenGL_Solution();
     }
 #endif
