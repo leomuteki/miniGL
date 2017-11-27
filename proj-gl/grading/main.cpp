@@ -64,6 +64,7 @@
 #include <cassert>
 #include <climits>
 #include <unistd.h>
+#include <math.h>
 
 #ifndef NO_OPENGL
 #ifndef __APPLE__
@@ -251,6 +252,8 @@ int main(int argc, char** argv)
     {
         pixel_data_sol = new MGLpixel[width*height];
         for(int i=0;i<width*height;i++) pixel_data_sol[i]=Make_Pixel(0,0,0);
+        // TODO REMOVE
+        std::cout << "width, height" << width << ", " << height << std::endl;
     }
 
     // Read solution from file

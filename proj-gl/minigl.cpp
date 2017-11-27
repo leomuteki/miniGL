@@ -293,10 +293,12 @@ void mglPopMatrix()
 void mglLoadIdentity()
 {
   // Load with identity matrix
-  currentStack().push_back({ 1,0,0,0,
+  currentStack().push_back({
+                             1,0,0,0,
                              0,1,0,0,
                              0,0,1,0,
-                             0,0,0,1 });
+                             0,0,0,1
+                           });
 }
 
 /**
@@ -410,17 +412,20 @@ void mglFrustum(MGLfloat left,
                 MGLfloat near,
                 MGLfloat far)
 {
-  if (near == 0)
-    {
-      near = numeric_limits<float>::min(); 
-    }
-	mat4 frust = {(2*near)/(right-left), 0, 0, 0,
-                0, (2 * near)/(top-bottom), 0, 0,
-                (right+left)/(right-left), (top+bottom)/(top-bottom), -((far + near)/(far-near)), -1,
-                0,0, -((2*far * near)/(far - near)), 0};
-  //                 {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15}
-	//topofactivestack() = topofactivestack() * frust;
-	mglMultMatrix(frust.values);
+  MGLfloat A = (right + left) / (right - left);
+  MGLfloat B = (top + bottom) / (top - bottom);
+  MGLfloat C = -((far + near) / (far - near));
+  MGLfloat D = -((2.0f*far*near) / (far - near));
+  MGLfloat E = (2.0f*near) / (right - left);
+  MGLfloat F = (2.0f*near) / (top - bottom);
+
+  mat4 frustum = {
+    E,0,A,0,
+    0,F,B,0,
+    0,0,C,D,
+    0,0,-1,0
+                 };
+  mglMultMatrix(frustum.values);
 
 }
 
@@ -435,12 +440,21 @@ void mglOrtho(MGLfloat left,
               MGLfloat near,
               MGLfloat far)
 {
-  mat4 ortho = {2/(right-left), 0, 0, 0, 0, 2/(top-bottom), 0, 0, 0, 0, -2/(far-near), 0,-((right+left)/(right-left)),-((top+bottom)/(top-bottom)), -((far + near)/(far - near)),1 };
-	//                 {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15}
-	
-	//cout << topofactivestack() << endl;
-	mglMultMatrix(ortho.values);
+  MGLfloat x = -((right + left) / (right - left));
+  MGLfloat y = -((top + bottom) / (top - bottom));
+  MGLfloat z = -((far + near) / (far - near));
 
+  MGLfloat w = 2 / (right - left);
+  MGLfloat v = 2 / (top - bottom);
+  MGLfloat t = -2 / (far - near);
+
+  mat4 orthoMat = {
+    w,0,0,x,
+    0,v,0,y,
+    0,0,t,z,
+    0,0,0,1
+                  };
+  mglMultMatrix(orthoMat.values);
 }
 
 /**

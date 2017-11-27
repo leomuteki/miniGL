@@ -20,9 +20,11 @@
 #include "mat.h"
 #include <algorithm>
 #include <cassert>
-#include <cmath>
+#include <math.h>
 #include <vector>
 #include <cstdio>
+#include <stdlib.h>
+#include <limits>
 
 using namespace std;
 
@@ -35,16 +37,43 @@ typedef vec<MGLfloat,4> vec4;   //data structure storing a 4 dimensional vector,
 typedef vec<MGLfloat,3> vec3;   //data structure storing a 3 dimensional vector, see vec.h
 typedef vec<MGLfloat,2> vec2;   //data structure storing a 2 dimensional vector, see vec.h
 
+// Global structs
+struct Vertex;
+struct Triangle;
+struct Pixel;
+
+// Global variables
+vector<Vertex> listOfVertices;
+vector<Triangle> listOfTriangles;
+vector<mat4> modelViewStack;
+vector<mat4> projectionStack;
+MGLpoly_mode drawMode;
+MGLmatrix_mode matMode;
+vec3 currentColor = { 255, 255, 255 };
+
 float areaRatio(int ax, int ay, int bx, int by, int cx, int cy) {
   return ax*(by-cy) + ay*(cx-bx) + (bx*cy-by*cx);
 }
 
-/**
+/*
  * Standard macro to report errors
  */
 inline void MGL_ERROR(const char* description) {
-    printf("%s\n", description);
+  printf("%s\n", description);
+  exit(1);
+}
+
+vector<mat4>& currentStack() {
+  if (matMode == MGL_PROJECTION) {
+    return projectionStack;
+  }
+  else if (matMode == MGL_MODELVIEW) {
+    return modelViewStack;
+  }
+  else {
+    MGL_ERROR("Matrix mode was not set.");
     exit(1);
+  }
 }
 
 // Global data structures
@@ -80,29 +109,16 @@ struct Triangle {
 
 struct Pixel {
   vec3 color;
-  vec3 position;
+  MGLfloat z;
   Pixel() {
     color = { 0, 0, 0 };
-    position = { 0, 0, 0 };
+    z = INFINITY;
   }
-  Pixel(float x, float y, float z) {
-    color = vec3(1.0f, 1.0f, 1.0f);
-    position = { x, y, z };
-  }
-  Pixel(float r, float g, float b, float x, float y) {
+  Pixel(float r, float g, float b, float z) {
     color = { r, g, b };
-    position = { x, y, 0};
-  }
-  Pixel(float r, float g, float b, float x, float y, float z) {
-    color = { r, g, b };
-    position = { x, y, z };
+    this->z = z;
   }
 };
-
-
-MGLpoly_mode drawMode;
-vector<Vertex> listOfVertices;
-vector<Triangle> listOfTriangles;
 
 /**
  * Read pixel data starting with the pixel at coordinates
@@ -150,24 +166,33 @@ void mglReadPixels(MGLsize width,
         float alpha = areaRatio(i, j, bx, by, cx, cy) / areaABC;
         float beta = areaRatio(ax, ay, i, j, cx, cy) / areaABC;
         float gamma = 1 - alpha - beta;
-        if (alpha >= 0 && beta >= 0 && gamma >= 0) {
+        if (alpha >= -0 && beta >= -0 && gamma >= -0) {
           // push MGLpixel onto zBuffer
-          if (zBuffer[i][j].position[2] < (curTri.a.position[2]*alpha+curTri.b.position[2]*beta+curTri.c.position[2]*gamma)) {
-            zBuffer[i][j] = Pixel(i, j,(curTri.a.position[2]*alpha+curTri.b.position[2]*beta+curTri.c.position[2]*gamma));
+          MGLfloat curZValue = curTri.a.position[2]*alpha
+            +curTri.b.position[2]*beta
+            +curTri.c.position[2]*gamma;
+          // Check if the current z value is smaller than the smallest
+          // in the zbuffer, then update it if necessary
+          if (zBuffer[i][j].z == INFINITY || curZValue < zBuffer[i][j].z) {
+            zBuffer[i][j] =
+              Pixel(currentColor[0], currentColor[1], currentColor[2], curZValue);
+            zBuffer[i][j].color[0] = currentColor[0];
+            zBuffer[i][j].color[1] = currentColor[1];
+            zBuffer[i][j].color[2] = currentColor[2];
           }
         }
       }
     }
   }
   // Push highest in each zBuffer to *data
-  MGLpixel finalPixels[2*width*height];
-  for (unsigned i = 0; i < width; ++i) {
-    for (unsigned j = 0; j < height; ++j){
-      finalPixels[2*(width + i*height)]=zBuffer[width][height].position[0];
-      finalPixels[2*(width + i*height)+1]=zBuffer[width][height].position[1];
+  for (MGLsize i = 0; i < width; ++i) {
+    for (MGLsize j = 0; j < height; ++j){
+      MGLfloat red = zBuffer[i][j].color[0];
+      MGLfloat green = zBuffer[i][j].color[1];
+      MGLfloat blue = zBuffer[i][j].color[2];
+      *(data + i + j * width) = Make_Pixel(red, green, blue);
     }
   }
-  data = finalPixels;
 }
 
 /**
@@ -183,6 +208,7 @@ void mglBegin(MGLpoly_mode mode)
 /**
  * Stop specifying the vertices for a group of primitives.
  */
+
 void mglEnd()
 {
   if (drawMode == MGL_TRIANGLES) {
@@ -211,6 +237,7 @@ void mglEnd()
   }
 }
 
+
 /**
  * Specify a two-dimensional vertex; the x- and y-coordinates
  * are explicitly specified, while the z-coordinate is assumed
@@ -220,7 +247,7 @@ void mglEnd()
 void mglVertex2(MGLfloat x,
                 MGLfloat y)
 {
-  listOfVertices.push_back(Vertex(x, y, 0.0f));
+  listOfVertices.push_back(Vertex(x, y, INFINITY));
 }
 
 /**
@@ -239,6 +266,7 @@ void mglVertex3(MGLfloat x,
  */
 void mglMatrixMode(MGLmatrix_mode mode)
 {
+  matMode = mode;
 }
 
 /**
@@ -247,6 +275,7 @@ void mglMatrixMode(MGLmatrix_mode mode)
  */
 void mglPushMatrix()
 {
+  currentStack().push_back(currentStack().back());
 }
 
 /**
@@ -255,6 +284,7 @@ void mglPushMatrix()
  */
 void mglPopMatrix()
 {
+  currentStack().pop_back();
 }
 
 /**
@@ -262,6 +292,13 @@ void mglPopMatrix()
  */
 void mglLoadIdentity()
 {
+  // Load with identity matrix
+  currentStack().push_back({
+                             1,0,0,0,
+                             0,1,0,0,
+                             0,0,1,0,
+                             0,0,0,1
+                           });
 }
 
 /**
@@ -278,6 +315,13 @@ void mglLoadIdentity()
  */
 void mglLoadMatrix(const MGLfloat *matrix)
 {
+  mat4 newMat;
+  for (unsigned int i = 0; i < 4; ++i) {
+    for (unsigned int j = 0; j < 4; ++j) {
+      newMat(i, j) = *(matrix + i + j*4);
+    }
+  }
+  currentStack().push_back(newMat);
 }
 
 /**
@@ -294,6 +338,13 @@ void mglLoadMatrix(const MGLfloat *matrix)
  */
 void mglMultMatrix(const MGLfloat *matrix)
 {
+  mat4 newMat;
+  for (unsigned int i = 0; i < 4; ++i) {
+    for (unsigned int j = 0; j < 4; ++j) {
+      newMat(i, j) = *(matrix + i + j*4);
+    }
+  }
+  currentStack().back() = currentStack().back() * newMat;
 }
 
 /**
@@ -304,6 +355,11 @@ void mglTranslate(MGLfloat x,
                   MGLfloat y,
                   MGLfloat z)
 {
+  mat4 translateMat = {1,0,0,0,
+                    0,1,0,0,
+                    0,0,1,0,
+                    x,y,z,1};
+  mglMultMatrix(translateMat.values);
 }
 
 /**
@@ -316,6 +372,18 @@ void mglRotate(MGLfloat angle,
                MGLfloat y,
                MGLfloat z)
 {
+  vec3 rotationAxis = vec3(x,y,z);
+	rotationAxis = rotationAxis.normalized();
+	MGLfloat cosTheta = cos(angle * (M_PI/180));
+	MGLfloat sinTheta = sin(angle * (M_PI/180));
+	MGLfloat xNorm= rotationAxis[0];
+	MGLfloat yNorm = rotationAxis[1];
+	MGLfloat zNorm = rotationAxis[2];
+	mat4 rotationMat = {xNorm*xNorm*(1-cosTheta)+cosTheta, yNorm*xNorm*(1-cosTheta)+(zNorm*sinTheta), xNorm*zNorm*(1-cosTheta)-(yNorm*sinTheta), 0,
+                 xNorm*yNorm*(1-cosTheta)-(zNorm*sinTheta), yNorm*yNorm*(1-cosTheta)+cosTheta, yNorm*zNorm*(1-cosTheta)+(xNorm*sinTheta), 0,
+                 xNorm*zNorm*(1-cosTheta)+(yNorm*sinTheta), yNorm*zNorm*(1-cosTheta)-(xNorm*sinTheta), zNorm*zNorm*(1-cosTheta)+cosTheta, 0,
+                 0,0,0,1};
+	mglMultMatrix(rotationMat.values);
 }
 
 /**
@@ -326,6 +394,11 @@ void mglScale(MGLfloat x,
               MGLfloat y,
               MGLfloat z)
 {
+  mat4 scaleMat = {x,0,0,0,
+                   0,y,0,0,
+                   0,0,z,0,
+                   0,0,0,1};
+	mglMultMatrix(scaleMat.values);
 }
 
 /**
@@ -339,6 +412,21 @@ void mglFrustum(MGLfloat left,
                 MGLfloat near,
                 MGLfloat far)
 {
+  MGLfloat A = (right + left) / (right - left);
+  MGLfloat B = (top + bottom) / (top - bottom);
+  MGLfloat C = -((far + near) / (far - near));
+  MGLfloat D = -((2.0f*far*near) / (far - near));
+  MGLfloat E = (2.0f*near) / (right - left);
+  MGLfloat F = (2.0f*near) / (top - bottom);
+
+  mat4 frustum = {
+    E,0,A,0,
+    0,F,B,0,
+    0,0,C,D,
+    0,0,-1,0
+                 };
+  mglMultMatrix(frustum.values);
+
 }
 
 /**
@@ -352,6 +440,21 @@ void mglOrtho(MGLfloat left,
               MGLfloat near,
               MGLfloat far)
 {
+  MGLfloat x = -((right + left) / (right - left));
+  MGLfloat y = -((top + bottom) / (top - bottom));
+  MGLfloat z = -((far + near) / (far - near));
+
+  MGLfloat w = 2 / (right - left);
+  MGLfloat v = 2 / (top - bottom);
+  MGLfloat t = -2 / (far - near);
+
+  mat4 orthoMat = {
+    w,0,0,x,
+    0,v,0,y,
+    0,0,t,z,
+    0,0,0,1
+                  };
+  mglMultMatrix(orthoMat.values);
 }
 
 /**
@@ -361,4 +464,7 @@ void mglColor(MGLfloat red,
               MGLfloat green,
               MGLfloat blue)
 {
+  currentColor[0] = red*255;
+  currentColor[1] = green*255;
+  currentColor[2] = blue*255;
 }
