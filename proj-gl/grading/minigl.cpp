@@ -25,6 +25,7 @@
 #include <cstdio>
 #include <stdlib.h>
 #include <limits>
+//#define INFINITY 0
 
 using namespace std;
 
@@ -50,10 +51,6 @@ vector<mat4> projectionStack;
 MGLpoly_mode drawMode;
 MGLmatrix_mode matMode;
 vec3 currentColor = { 255, 255, 255 };
-
-float areaRatio(int ax, int ay, int bx, int by, int cx, int cy) {
-  return ax*(by-cy) + ay*(cx-bx) + (bx*cy-by*cx);
-}
 
 /*
  * Standard macro to report errors
@@ -92,9 +89,9 @@ struct Vertex {
     color = { r, g, b };
     position = { x, y, 0, 1 };
   }
-  Vertex(float r, float g, float b, float x, float y, float z, float w) {
+  Vertex(float r, float g, float b, float x, float y, float z) {
     color = { r, g, b };
-    position = { x, y, z, w };
+    position = { x, y, z, 1 };
   }
 };
 
@@ -119,6 +116,31 @@ struct Pixel {
     this->z = z;
   }
 };
+
+float areaRatio(int ax, int ay, int bx, int by, int cx, int cy) {
+  return ax*(by-cy) + ay*(cx-bx) + (bx*cy-by*cx);
+}
+
+void transform(vec4 &vec) {
+  uint dimension=vec.size();
+  mat4 mod=modelViewStack.back();
+  mat4 proj=projectionStack.back();
+  vec = proj * mod * vec;
+  /*
+  vec4 resultVec;
+  MGLfloat sum=0;
+  for (uint i=0; i<dimension; ++i) {
+    sum=0;
+    for (uint j=0; j<dimension; ++j) {
+      sum+=mat(i,j)+vec[j];
+    }
+    resultVec[i]=sum;
+  }
+  for (uint i=0; i<dimension; ++i) {
+    vec[i]=resultVec[i];
+  }
+  */
+}
 
 /**
  * Read pixel data starting with the pixel at coordinates
@@ -147,6 +169,19 @@ void mglReadPixels(MGLsize width,
   }
   for (unsigned i = 0; i < listOfTrianglesSize; ++i) {
     Triangle curTri = listOfTriangles.at(i);
+    MGLfloat w = curTri.a.position[3];
+    curTri.a.position[0] /= w;
+    curTri.a.position[1] /= w;
+    curTri.a.position[2] /= w;
+    w = curTri.b.position[3];
+    curTri.b.position[0] /= w;
+    curTri.b.position[1] /= w;
+    curTri.b.position[2] /= w;
+    w = curTri.c.position[3];
+    curTri.c.position[0] /= w;
+    curTri.c.position[1] /= w;
+    curTri.c.position[2] /= w;
+
     // Transform to pixel coordinates
     int ax = (curTri.a.position[0] + 1) * width / 2;
     int ay = (curTri.a.position[1] + 1) * height / 2;
@@ -159,6 +194,12 @@ void mglReadPixels(MGLsize width,
     int maxX = max(max(ax, bx), cx);
     int minY = min(min(ay, by), cy);
     int maxY = max(max(ay, by), cy);
+    if (minX < 0) minX = 0;
+    if (maxX >= width) maxX = width-1;
+    if (minY < 0) minY = 0;
+    if (maxY >= height) maxY = height-1;
+    cout << "width: " << width << "," << height << endl;
+    std::cout << minX << "," << maxX << ", " << minY << ", " << maxY << endl;
     for (int i = minX; i < maxX; ++i) {
       for (int j = minY; j < maxY; ++j) {
         // Check if image pixel in within triangle
@@ -174,11 +215,13 @@ void mglReadPixels(MGLsize width,
           // Check if the current z value is smaller than the smallest
           // in the zbuffer, then update it if necessary
           if (zBuffer[i][j].z == INFINITY || curZValue < zBuffer[i][j].z) {
+            // Calulate color at pixel position
+            MGLfloat r = alpha*curTri.a.color[0]+beta*curTri.b.color[0]+gamma*curTri.c.color[0];
+            MGLfloat g = alpha*curTri.a.color[1]+beta*curTri.b.color[1]+gamma*curTri.c.color[1];
+            MGLfloat b = alpha*curTri.a.color[2]+beta*curTri.b.color[2]+gamma*curTri.c.color[2];
+
             zBuffer[i][j] =
-              Pixel(currentColor[0], currentColor[1], currentColor[2], curZValue);
-            zBuffer[i][j].color[0] = currentColor[0];
-            zBuffer[i][j].color[1] = currentColor[1];
-            zBuffer[i][j].color[2] = currentColor[2];
+              Pixel(r,g,b,curZValue);
           }
         }
       }
@@ -211,30 +254,32 @@ void mglBegin(MGLpoly_mode mode)
 
 void mglEnd()
 {
+  for (int i = 0; i <listOfVertices.size(); ++i) {
+    cout << listOfVertices.at(i).color[0] << "," <<listOfVertices.at(i).color[1]<<","<<listOfVertices.at(i).color[2] << endl;
+  }
   if (drawMode == MGL_TRIANGLES) {
-    for (unsigned i = 0; i < listOfVertices.size(); ++i) {
-      if (i + 2 < listOfVertices.size()) {
+    for (unsigned i = 0; i < listOfVertices.size(); i+=3) {
         Vertex a, b, c;
         a = listOfVertices.at(i);
         b = listOfVertices.at(i+1);
         c = listOfVertices.at(i+2);
         listOfTriangles.push_back(Triangle(a, b, c));
-      }
     }
   }
   else if (drawMode == MGL_QUADS) {
-    for (unsigned i = 0; i < listOfVertices.size(); ++i) {
-      if (i + 3 < listOfVertices.size()) {
+    for (unsigned i = 0; i < listOfVertices.size(); i+=4) {
+      //if (i + 3 < listOfVertices.size()) {
         Vertex a, b, c, d;
         a = listOfVertices.at(i);
         b = listOfVertices.at(i+1);
         c = listOfVertices.at(i+2);
         d = listOfVertices.at(i+3);
         listOfTriangles.push_back(Triangle(a, b, c));
-        listOfTriangles.push_back(Triangle(b, c, d));
-      }
+        listOfTriangles.push_back(Triangle(c, d, a));
+        // }
     }
   }
+  listOfVertices.clear();
 }
 
 
@@ -247,7 +292,9 @@ void mglEnd()
 void mglVertex2(MGLfloat x,
                 MGLfloat y)
 {
-  listOfVertices.push_back(Vertex(x, y, INFINITY));
+  Vertex newVertex=(Vertex(currentColor[0],currentColor[1],currentColor[2],x,y,0.0f));
+  transform(newVertex.position);
+  listOfVertices.push_back(newVertex);//Vertex(x,y,INFINITY));
 }
 
 /**
@@ -258,7 +305,9 @@ void mglVertex3(MGLfloat x,
                 MGLfloat y,
                 MGLfloat z)
 {
-  listOfVertices.push_back(Vertex(x, y, z));
+  Vertex newVertex=(Vertex(currentColor[0],currentColor[1],currentColor[2],x,y,z));
+    transform(newVertex.position);
+    listOfVertices.push_back(newVertex);//Vertex(x,y,z));
 }
 
 /**
@@ -420,10 +469,10 @@ void mglFrustum(MGLfloat left,
   MGLfloat F = (2.0f*near) / (top - bottom);
 
   mat4 frustum = {
-    E,0,A,0,
-    0,F,B,0,
-    0,0,C,D,
-    0,0,-1,0
+    E,0,0,0,
+    0,F,0,0,
+    A,B,C,-1,
+    0,0,D,0
                  };
   mglMultMatrix(frustum.values);
 
@@ -449,10 +498,10 @@ void mglOrtho(MGLfloat left,
   MGLfloat t = -2 / (far - near);
 
   mat4 orthoMat = {
-    w,0,0,x,
-    0,v,0,y,
-    0,0,t,z,
-    0,0,0,1
+    w,0,0,0,
+    0,v,0,0,
+    0,0,t,0,
+    x,y,z,1
                   };
   mglMultMatrix(orthoMat.values);
 }
