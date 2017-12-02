@@ -1,6 +1,6 @@
 CXX = g++
-CXXFLAGS = -Wall -g  -std=c++11
-CXXFLAGS2 = -Wall -g  -std=c++11 -DNO_OPENGL
+CXXFLAGS = -Wall -g -O3 -std=c++11
+CXXFLAGS2 = -Wall -g -O3 -std=c++11 -DNO_OPENGL
 LIBS  = -lGL -lGLU -lglut -lX11 -lpng
 LIBS2  = -lpng
 SRCS = $(wildcard *.cpp)

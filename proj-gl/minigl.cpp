@@ -81,15 +81,15 @@ struct Vertex {
     color = { 0, 0, 0 };
     position = { 0, 0, 0, 0 };
   }
-  Vertex(float x, float y, float z) {
+  Vertex(MGLfloat x, MGLfloat y, MGLfloat z) {
     color = vec3(1.0f, 1.0f, 1.0f);
     position = { x, y, z, 1 };
   }
-  Vertex(float r, float g, float b, float x, float y) {
+  Vertex(MGLfloat r, MGLfloat g, MGLfloat b, MGLfloat x, MGLfloat y) {
     color = { r, g, b };
     position = { x, y, 0, 1 };
   }
-  Vertex(float r, float g, float b, float x, float y, float z) {
+  Vertex(MGLfloat r, MGLfloat g, MGLfloat b, MGLfloat x, MGLfloat y, MGLfloat z) {
     color = { r, g, b };
     position = { x, y, z, 1 };
   }
@@ -111,7 +111,7 @@ struct Pixel {
     color = { 0, 0, 0 };
     z = INFINITY;
   }
-  Pixel(float r, float g, float b, float z) {
+  Pixel(MGLfloat r, MGLfloat g, MGLfloat b, MGLfloat z) {
     color = { r, g, b };
     this->z = z;
   }
@@ -122,24 +122,9 @@ float areaRatio(int ax, int ay, int bx, int by, int cx, int cy) {
 }
 
 void transform(vec4 &vec) {
-  uint dimension=vec.size();
   mat4 mod=modelViewStack.back();
   mat4 proj=projectionStack.back();
   vec = proj * mod * vec;
-  /*
-  vec4 resultVec;
-  MGLfloat sum=0;
-  for (uint i=0; i<dimension; ++i) {
-    sum=0;
-    for (uint j=0; j<dimension; ++j) {
-      sum+=mat(i,j)+vec[j];
-    }
-    resultVec[i]=sum;
-  }
-  for (uint i=0; i<dimension; ++i) {
-    vec[i]=resultVec[i];
-  }
-  */
 }
 
 /**
@@ -159,29 +144,28 @@ void mglReadPixels(MGLsize width,
                    MGLpixel *data)
 {
   // Get every triangle from the global list
-  unsigned listOfTrianglesSize = listOfTriangles.size();
+  MGLsize listOfTrianglesSize = listOfTriangles.size();
   // Fill zBuffer with null Pixels for zValue comparison
   Pixel zBuffer[width][height];
-  for (unsigned i = 0; i < width; ++i) {
-    for (unsigned j = 0; j < height; ++j) {
+  for (MGLsize i = 0; i < width; ++i) {
+    for (MGLsize j = 0; j < height; ++j) {
       zBuffer[i][j] = Pixel();
     }
   }
-  for (unsigned i = 0; i < listOfTrianglesSize; ++i) {
+  for (MGLsize i = 0; i < listOfTrianglesSize; ++i) {
     Triangle curTri = listOfTriangles.at(i);
-    MGLfloat w = curTri.a.position[3];
-    curTri.a.position[0] /= w;
-    curTri.a.position[1] /= w;
-    curTri.a.position[2] /= w;
-    w = curTri.b.position[3];
-    curTri.b.position[0] /= w;
-    curTri.b.position[1] /= w;
-    curTri.b.position[2] /= w;
-    w = curTri.c.position[3];
-    curTri.c.position[0] /= w;
-    curTri.c.position[1] /= w;
-    curTri.c.position[2] /= w;
-
+    MGLfloat wa = curTri.a.position[3];
+    curTri.a.position[0] /= wa;
+    curTri.a.position[1] /= wa;
+    curTri.a.position[2] /= wa;
+    MGLfloat wb = curTri.b.position[3];
+    curTri.b.position[0] /= wb;
+    curTri.b.position[1] /= wb;
+    curTri.b.position[2] /= wb;
+    MGLfloat wc = curTri.c.position[3];
+    curTri.c.position[0] /= wc;
+    curTri.c.position[1] /= wc;
+    curTri.c.position[2] /= wc;
     // Transform to pixel coordinates
     int ax = (curTri.a.position[0] + 1) * width / 2;
     int ay = (curTri.a.position[1] + 1) * height / 2;
@@ -195,33 +179,34 @@ void mglReadPixels(MGLsize width,
     int minY = min(min(ay, by), cy);
     int maxY = max(max(ay, by), cy);
     if (minX < 0) minX = 0;
-    if (maxX >= width) maxX = width-1;
+    if (maxX >= (int)width) maxX = width-1;
     if (minY < 0) minY = 0;
-    if (maxY >= height) maxY = height-1;
-    cout << "width: " << width << "," << height << endl;
-    std::cout << minX << "," << maxX << ", " << minY << ", " << maxY << endl;
+    if (maxY >= (int)height) maxY = height-1;
     for (int i = minX; i < maxX; ++i) {
       for (int j = minY; j < maxY; ++j) {
         // Check if image pixel in within triangle
-        float areaABC = areaRatio(ax, ay, bx, by, cx, cy);
-        float alpha = areaRatio(i, j, bx, by, cx, cy) / areaABC;
-        float beta = areaRatio(ax, ay, i, j, cx, cy) / areaABC;
-        float gamma = 1 - alpha - beta;
-        if (alpha >= -0 && beta >= -0 && gamma >= -0) {
-          // push MGLpixel onto zBuffer
-          MGLfloat curZValue = curTri.a.position[2]*alpha
-            +curTri.b.position[2]*beta
-            +curTri.c.position[2]*gamma;
-          // Check if the current z value is smaller than the smallest
+        MGLfloat areaABC = areaRatio(ax, ay, bx, by, cx, cy);
+        MGLfloat alpha0 = areaRatio(i, j, bx, by, cx, cy) / areaABC;
+        MGLfloat beta0 = areaRatio(ax, ay, i, j, cx, cy) / areaABC;
+        MGLfloat gamma0 = 1 - alpha0 - beta0;
+        // Apply perspective transformations on alpha,beta,gamma
+        MGLfloat baryPerspectiveSum=((alpha0/wa)+(beta0/wb)+(gamma0/wc));
+        MGLfloat alpha=(alpha0/wa)/baryPerspectiveSum;
+        MGLfloat beta=(beta0/wb)/baryPerspectiveSum;
+        MGLfloat gamma=1-alpha-beta;
+        // Calculate interpolated z
+        MGLfloat interpolatedZ=curTri.a.position[2]*alpha+curTri.b.position[2]*beta+curTri.c.position[2]*gamma;
+        // Check alpha, beta, gamma to see whether to draw the pixel
+        if (alpha >= 0 && beta >= 0 && gamma >= 0 && (interpolatedZ==1||interpolatedZ==-1||(interpolatedZ<1&&interpolatedZ>-1))) {
           // in the zbuffer, then update it if necessary
-          if (zBuffer[i][j].z == INFINITY || curZValue < zBuffer[i][j].z) {
+          if (zBuffer[i][j].z == INFINITY || interpolatedZ <= zBuffer[i][j].z) {
             // Calulate color at pixel position
             MGLfloat r = alpha*curTri.a.color[0]+beta*curTri.b.color[0]+gamma*curTri.c.color[0];
             MGLfloat g = alpha*curTri.a.color[1]+beta*curTri.b.color[1]+gamma*curTri.c.color[1];
             MGLfloat b = alpha*curTri.a.color[2]+beta*curTri.b.color[2]+gamma*curTri.c.color[2];
 
             zBuffer[i][j] =
-              Pixel(r,g,b,curZValue);
+              Pixel(r,g,b,interpolatedZ);
           }
         }
       }
@@ -254,11 +239,10 @@ void mglBegin(MGLpoly_mode mode)
 
 void mglEnd()
 {
-  for (int i = 0; i <listOfVertices.size(); ++i) {
-    cout << listOfVertices.at(i).color[0] << "," <<listOfVertices.at(i).color[1]<<","<<listOfVertices.at(i).color[2] << endl;
+  for ( MGLsize i = 0; i <listOfVertices.size(); ++i) {
   }
   if (drawMode == MGL_TRIANGLES) {
-    for (unsigned i = 0; i < listOfVertices.size(); i+=3) {
+    for (MGLsize i = 0; i < listOfVertices.size(); i+=3) {
         Vertex a, b, c;
         a = listOfVertices.at(i);
         b = listOfVertices.at(i+1);
@@ -267,7 +251,7 @@ void mglEnd()
     }
   }
   else if (drawMode == MGL_QUADS) {
-    for (unsigned i = 0; i < listOfVertices.size(); i+=4) {
+    for (MGLsize i = 0; i < listOfVertices.size(); i+=4) {
       //if (i + 3 < listOfVertices.size()) {
         Vertex a, b, c, d;
         a = listOfVertices.at(i);
@@ -365,8 +349,8 @@ void mglLoadIdentity()
 void mglLoadMatrix(const MGLfloat *matrix)
 {
   mat4 newMat;
-  for (unsigned int i = 0; i < 4; ++i) {
-    for (unsigned int j = 0; j < 4; ++j) {
+  for (MGLsize i = 0; i < 4; ++i) {
+    for (MGLsize j = 0; j < 4; ++j) {
       newMat(i, j) = *(matrix + i + j*4);
     }
   }
@@ -388,8 +372,8 @@ void mglLoadMatrix(const MGLfloat *matrix)
 void mglMultMatrix(const MGLfloat *matrix)
 {
   mat4 newMat;
-  for (unsigned int i = 0; i < 4; ++i) {
-    for (unsigned int j = 0; j < 4; ++j) {
+  for (MGLsize i = 0; i < 4; ++i) {
+    for (MGLsize j = 0; j < 4; ++j) {
       newMat(i, j) = *(matrix + i + j*4);
     }
   }
